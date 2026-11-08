@@ -22,6 +22,8 @@ def main() -> None:
                         help="Script file (one line of dialogue per line)")
     parser.add_argument("-o", required=True, metavar="DIR", dest="output",
                         help="Destination folder for MP3 files")
+    parser.add_argument("--oops", action="store_true",
+                        help="Only process lines that contain SFX placeholders (skips all others)")
     args = parser.parse_args()
 
     output_dir = Path(args.output)
@@ -34,9 +36,16 @@ def main() -> None:
             continue
 
         sfx_match = SFX_PATTERN.search(line)
-        if sfx_match:
-            print(f"File {lineno}.mp3 needs [{sfx_match.group(1)}] SFX.")
+
+        if args.oops and not sfx_match:
             continue
+        if not args.oops and not sfx_match:
+            spoken = line
+        else:
+            print(f"File {lineno}.mp3 needs [{sfx_match.group(1)}] SFX.")
+            spoken = SFX_PATTERN.sub("", line).strip()
+            if not spoken:
+                continue
 
         output_file = output_dir / f"{lineno}.mp3"
         result = subprocess.run(
@@ -45,7 +54,7 @@ def main() -> None:
                 "--config", str(VOICEGEN_CONFIG),
                 "-o", str(output_file),
             ],
-            input=line,
+            input=spoken,
             text=True,
         )
         if result.returncode != 0:
