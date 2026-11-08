@@ -1,0 +1,13 @@
+# OpenRouter model that supports TTS, e.g. "openai/tts-1" or "openai/tts-1-hd"
+model = "openai/tts-1"
+
+# Voice identifier supported by the chosen model.
+# OpenAI voices: alloy, echo, fable, onyx, nova, shimmer
+voice = "alloy"
+
+# Optional: prepended to the input text before sending to the TTS model.
+# Use for style/tone instructions if the model supports them.
+# stageDirections = "Speak in a calm, measured tone."
+
+# Optional: inline script used when no -i file or stdin is provided.
+# script = "Hello, world."

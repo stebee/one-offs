@@ -4,4 +4,6 @@ A dumping ground for standalone scripts that aren't worth a full project setup b
 
 ## Scripts
 
-[TBD]
+| Script | Language | Description |
+|--------|----------|-------------|
+| [voicegen](voicegen/) | Python | Generate MP3 speech from text via OpenRouter TTS |
