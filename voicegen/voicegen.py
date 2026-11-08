@@ -37,14 +37,25 @@ def play_audio(path: Path) -> None:
     system = platform.system()
     if system == "Darwin":
         subprocess.run(["afplay", str(path)], check=True)
-    elif system == "Windows":
+        return
+
+    # Windows and Linux: try command-line players first (blocking), fall back to OS default.
+    candidates = [
+        (["ffplay", "-nodisp", "-autoexit", str(path)], "ffplay"),
+        (["mpg123", str(path)], "mpg123"),
+        (["mpg321", str(path)], "mpg321"),
+    ]
+    probe = "where" if system == "Windows" else "which"
+    for cmd, exe in candidates:
+        if subprocess.run([probe, exe], capture_output=True).returncode == 0:
+            subprocess.run(cmd, check=True)
+            return
+
+    # Last resort on Windows: open with default media app (async).
+    if system == "Windows":
         os.startfile(str(path))
     else:
-        for player, extra_args in [("mpg123", []), ("mpg321", []), ("ffplay", ["-nodisp", "-autoexit"])]:
-            if subprocess.run(["which", player], capture_output=True).returncode == 0:
-                subprocess.run([player, *extra_args, str(path)], check=True)
-                return
-        print("Warning: no audio player found; install mpg123 or ffplay.", file=sys.stderr)
+        print("Warning: no audio player found; install ffmpeg or mpg123.", file=sys.stderr)
 
 
 def main() -> None:
