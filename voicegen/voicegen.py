@@ -84,12 +84,22 @@ def main() -> None:
             "model": config["model"],
             "input": text,
             "voice": config["voice"],
+            "response_format": "mp3",
         },
         timeout=120,
     )
 
     if not response.ok:
         print(f"Error {response.status_code}: {response.text}", file=sys.stderr)
+        sys.exit(1)
+
+    content_type = response.headers.get("Content-Type", "")
+    if not content_type.startswith("audio/"):
+        print(
+            f"Error: expected audio response but got Content-Type: {content_type!r}\n"
+            f"Body: {response.text}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     output_path = Path(args.output)
