@@ -42,12 +42,12 @@ def main() -> None:
         if not args.oops and not sfx_match:
             spoken = line
         else:
-            print(f"File {lineno}.mp3 needs [{sfx_match.group(1)}] SFX.")
+            print(f"File {lineno:06d}.mp3 needs [{sfx_match.group(1)}] SFX.")
             spoken = SFX_PATTERN.sub("", line).strip()
             if not spoken:
                 continue
 
-        output_file = output_dir / f"{lineno}.mp3"
+        output_file = output_dir / f"{lineno:06d}.mp3"
         result = subprocess.run(
             [
                 sys.executable, str(VOICEGEN_PY),
