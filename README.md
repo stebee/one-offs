@@ -8,6 +8,7 @@ A dumping ground for standalone scripts that aren't worth a full project setup b
 |--------|----------|-------------|
 | [voicegen](voicegen/) | Python | Generate MP3 speech from text via OpenRouter TTS |
 | [scriptgen](scriptgen/) | Python | Generate per-line MP3s from a script file using voicegen |
+| [pad-filenames](pad-filenames/) | Bash | Pad numeric filenames with leading zeros to 6 digits |
 
 ---
 
