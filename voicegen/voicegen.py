@@ -3,6 +3,8 @@
 
 import argparse
 import os
+import platform
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -30,32 +32,9 @@ def read_input(args: argparse.Namespace, config: dict) -> str:
     sys.exit(1)
 
 
-def play_audio(path: Path) -> None:
-    import platform
-    import subprocess
-
-    system = platform.system()
-    if system == "Darwin":
-        subprocess.run(["afplay", str(path)], check=True)
-        return
-
-    # Windows and Linux: try command-line players first (blocking), fall back to OS default.
-    candidates = [
-        (["ffplay", "-nodisp", "-autoexit", str(path)], "ffplay"),
-        (["mpg123", str(path)], "mpg123"),
-        (["mpg321", str(path)], "mpg321"),
-    ]
-    probe = "where" if system == "Windows" else "which"
-    for cmd, exe in candidates:
-        if subprocess.run([probe, exe], capture_output=True).returncode == 0:
-            subprocess.run(cmd, check=True)
-            return
-
-    # Last resort on Windows: open with default media app (async).
-    if system == "Windows":
-        os.startfile(str(path))
-    else:
-        print("Warning: no audio player found; install ffmpeg or mpg123.", file=sys.stderr)
+def _has_cmd(name: str) -> bool:
+    probe = "where" if platform.system() == "Windows" else "which"
+    return subprocess.run([probe, name], capture_output=True).returncode == 0
 
 
 def main() -> None:
@@ -85,6 +64,8 @@ def main() -> None:
     if config.get("stageDirections"):
         text = config["stageDirections"] + "\n\n" + text
 
+    print("Generating...", end="", flush=True, file=sys.stderr)
+
     response = requests.post(
         "https://openrouter.ai/api/v1/audio/speech",
         headers={
@@ -97,28 +78,67 @@ def main() -> None:
             "voice": config["voice"],
             "response_format": "mp3",
         },
+        stream=True,
         timeout=120,
     )
 
     if not response.ok:
-        print(f"Error {response.status_code}: {response.text}", file=sys.stderr)
+        print(f"\nError {response.status_code}: {response.text}", file=sys.stderr)
         sys.exit(1)
 
     content_type = response.headers.get("Content-Type", "")
     if not content_type.startswith("audio/"):
         print(
-            f"Error: expected audio response but got Content-Type: {content_type!r}\n"
+            f"\nError: expected audio response but got Content-Type: {content_type!r}\n"
             f"Body: {response.text}",
             file=sys.stderr,
         )
         sys.exit(1)
 
     output_path = Path(args.output)
-    output_path.write_bytes(response.content)
-    print(f"Saved to {output_path}", file=sys.stderr)
+    use_ffplay = args.play and _has_cmd("ffplay")
 
-    if args.play:
-        play_audio(output_path)
+    # When streaming to ffplay, start the process now so audio plays as chunks arrive.
+    ffplay_proc = None
+    if use_ffplay:
+        print(" streaming.", file=sys.stderr)
+        ffplay_proc = subprocess.Popen(
+            ["ffplay", "-nodisp", "-autoexit", "-loglevel", "error", "-"],
+            stdin=subprocess.PIPE,
+        )
+
+    received = 0
+    with open(output_path, "wb") as f:
+        for chunk in response.iter_content(chunk_size=4096):
+            if chunk:
+                f.write(chunk)
+                received += len(chunk)
+                if ffplay_proc:
+                    ffplay_proc.stdin.write(chunk)
+                else:
+                    print(f"\r{received // 1024} KB...", end="", flush=True, file=sys.stderr)
+
+    if ffplay_proc:
+        ffplay_proc.stdin.close()
+        ffplay_proc.wait()
+        print(f"Saved {output_path} ({received // 1024} KB)", file=sys.stderr)
+    else:
+        print(f"\rSaved {output_path} ({received // 1024} KB)", file=sys.stderr)
+        if args.play:
+            # ffplay not available; try other blocking players then fall back to OS default.
+            system = platform.system()
+            for cmd, exe in [
+                (["mpg123", str(output_path)], "mpg123"),
+                (["mpg321", str(output_path)], "mpg321"),
+            ]:
+                if _has_cmd(exe):
+                    subprocess.run(cmd, check=True)
+                    break
+            else:
+                if system == "Windows":
+                    os.startfile(str(output_path))
+                else:
+                    print("Warning: no audio player found; install ffmpeg or mpg123.", file=sys.stderr)
 
 
 if __name__ == "__main__":
