@@ -12,8 +12,8 @@ for f in "$dir"/*; do
     stem="${base%.*}"
     ext="${base#"$stem"}"
     [[ "$stem" =~ ^[0-9]+$ ]] || continue
-    if (( ${#stem} < 6 )); then
-        padded=$(printf '%06d' "$stem")
+    if (( ${#stem} < 5 )); then
+        padded=$(printf '%05d' "$stem")
         mv -- "$f" "$dir/$padded$ext"
         echo "$base -> $padded$ext"
     fi
